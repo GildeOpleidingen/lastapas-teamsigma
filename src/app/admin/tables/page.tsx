@@ -11,6 +11,7 @@ export default async function AdminTablesPage() {
       status: restaurantTables.status,
       sessionId: tableSessions.id,
       guestCount: tableSessions.guestCount,
+      sessionCreatedAt: tableSessions.createdAt,
     })
     .from(restaurantTables)
     .leftJoin(
@@ -31,7 +32,7 @@ export default async function AdminTablesPage() {
         </p>
         <h1 className="text-2xl font-bold">Tables</h1>
       </div>
-      <TableGrid tables={tables} />
+      <TableGrid tables={tables.map(t => ({ ...t, sessionCreatedAt: t.sessionCreatedAt?.getTime() ?? null }))} />
     </main>
   );
 }
