@@ -1,9 +1,31 @@
 import { db } from "@/db";
 import { restaurantTables, tableSessions, orders } from "@/db/schema";
 import { and, eq, max } from "drizzle-orm";
+import { connection } from "next/server";
 import { TableGrid } from "./_components/TableGrid";
+import { AdminLoginForm } from "./_components/AdminLoginForm";
+import { isAdminAuthConfigured, hasAdminSession } from "@/lib/admin-auth";
+import { logoutAdmin } from "./actions";
 
 export default async function AdminTablesPage() {
+  await connection();
+
+  if (!isAdminAuthConfigured()) {
+    return (
+      <main className="flex min-h-dvh flex-col items-center justify-center gap-3 bg-background px-6 text-center text-foreground">
+        <p className="text-lg font-semibold">Admin auth is not configured</p>
+        <p className="max-w-md text-sm text-muted-foreground">
+          Add ADMIN_PASSCODE and APP_SECRET or ADMIN_SESSION_SECRET to your
+          environment before using the table admin.
+        </p>
+      </main>
+    );
+  }
+
+  if (!(await hasAdminSession())) {
+    return <AdminLoginForm />;
+  }
+
   const tables = await db
     .select({
       id: restaurantTables.id,
@@ -34,7 +56,17 @@ export default async function AdminTablesPage() {
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Admin
         </p>
-        <h1 className="text-2xl font-bold">Tables</h1>
+        <div className="flex items-center justify-between gap-3">
+          <h1 className="text-2xl font-bold">Tables</h1>
+          <form action={logoutAdmin}>
+            <button
+              type="submit"
+              className="rounded-full border border-border px-3 py-1.5 text-xs font-medium text-muted-foreground transition-colors hover:bg-muted"
+            >
+              Sign out
+            </button>
+          </form>
+        </div>
       </div>
       <div className="min-h-0 flex-1">
         <TableGrid

@@ -9,6 +9,8 @@ export function useRealtimeRefresh(channel: string) {
 
   useEffect(() => {
     const pusher = getPusherClient();
+    if (!pusher) return;
+
     const ch = pusher.subscribe(channel);
     ch.bind("refresh", () => router.refresh());
     return () => {

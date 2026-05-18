@@ -47,9 +47,8 @@ function formatDurationLong(ms: number) {
 }
 
 function useNow() {
-  const [now, setNow] = useState<number | null>(null);
+  const [now, setNow] = useState(() => Date.now());
   useEffect(() => {
-    setNow(Date.now());
     const id = setInterval(() => setNow(Date.now()), 1000);
     return () => clearInterval(id);
   }, []);
@@ -123,9 +122,10 @@ function SidebarCard({
   table: TableRow;
   selected: boolean;
   onClick: () => void;
-  now: number | null;
+  now: number;
 }) {
-  const duration = table.sessionCreatedAt && now ? now - table.sessionCreatedAt : null;
+  const duration = table.sessionCreatedAt ? now - table.sessionCreatedAt : null;
+  const needsService = table.status === "needs_service";
 
   return (
     <button
@@ -133,7 +133,9 @@ function SidebarCard({
       className={`w-full rounded-xl border px-3 py-2.5 text-left transition-all
         ${selected
           ? "border-primary/30 bg-primary/8 ring-1 ring-primary/20"
-          : "border-border bg-muted/30 hover:bg-muted/60"
+          : needsService
+            ? "border-destructive/30 bg-destructive/10 hover:bg-destructive/15"
+            : "border-border bg-muted/30 hover:bg-muted/60"
         }`}
     >
       <div className="flex items-center justify-between mb-1.5">
@@ -162,6 +164,11 @@ function SidebarCard({
           {table.accessCode}
         </span>
       )}
+      {needsService && (
+        <span className="mt-1.5 block text-[11px] font-semibold text-destructive">
+          Service requested
+        </span>
+      )}
     </button>
   );
 }
@@ -175,7 +182,7 @@ function Sidebar({
   tables: TableRow[];
   selectedId: number | null;
   onSelect: (id: number) => void;
-  now: number | null;
+  now: number;
 }) {
   const seated = tables
     .filter(t => t.sessionId !== null)
@@ -220,21 +227,26 @@ function FloorTable({
   table: TableRow;
   selected: boolean;
   onClick: () => void;
-  now: number | null;
+  now: number;
 }) {
   const occupied = table.sessionId !== null;
-  const duration = occupied && table.sessionCreatedAt && now
+  const needsService = table.status === "needs_service";
+  const duration = occupied && table.sessionCreatedAt
     ? now - table.sessionCreatedAt
     : null;
 
   const cfg = TABLE_CONFIG[table.tableNumber];
   const [left, top] = cfg?.pos ?? [50, 50];
 
-  const color = occupied
+  const color = needsService
+    ? "bg-destructive text-white shadow-md shadow-destructive/25"
+    : occupied
     ? "bg-primary text-primary-foreground shadow-md shadow-primary/25"
     : "bg-green-100 text-green-800 border border-green-200 dark:bg-green-950/50 dark:text-green-400 dark:border-green-900/60";
 
-  const ring = selected ? "ring-2 ring-offset-2 ring-primary scale-105" : "";
+  const ring = selected
+    ? `ring-2 ring-offset-2 ${needsService ? "ring-destructive" : "ring-primary"} scale-105`
+    : "";
 
   return (
     <button
@@ -276,6 +288,12 @@ function TablePanel({
   const [guestCount, setGuestCount] = useState(table.guestCount ?? 2);
   const [error, setError] = useState<string | null>(null);
   const occupied = table.sessionId !== null;
+  const needsService = table.status === "needs_service";
+  const statusLabel = needsService
+    ? "Needs service"
+    : occupied
+      ? "Occupied"
+      : "Available";
 
   function handleOpen() {
     startTransition(async () => {
@@ -304,13 +322,19 @@ function TablePanel({
         <div className="flex items-center gap-3">
           <span
             className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full
-              ${occupied
+              ${needsService
+                ? "bg-destructive/10 text-destructive"
+                : occupied
                 ? "bg-primary/10 text-primary"
                 : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400"
               }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${occupied ? "bg-primary" : "bg-green-500"}`} />
-            {occupied ? "Occupied" : "Available"}
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                needsService ? "bg-destructive" : occupied ? "bg-primary" : "bg-green-500"
+              }`}
+            />
+            {statusLabel}
           </span>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-muted">
             <X size={16} />
@@ -394,20 +418,23 @@ function MobileTableCard({
   table: TableRow;
   selected: boolean;
   onClick: () => void;
-  now: number | null;
+  now: number;
 }) {
   const occupied = table.sessionId !== null;
-  const duration = occupied && table.sessionCreatedAt && now ? now - table.sessionCreatedAt : null;
+  const needsService = table.status === "needs_service";
+  const duration = occupied && table.sessionCreatedAt ? now - table.sessionCreatedAt : null;
 
   return (
     <button
       onClick={onClick}
       className={`rounded-2xl p-4 text-left w-full transition-all
-        ${occupied
+        ${needsService
+          ? "bg-destructive text-white shadow-md shadow-destructive/20"
+          : occupied
           ? "bg-primary text-primary-foreground shadow-md shadow-primary/20"
           : "bg-green-50 text-green-800 border border-green-200 dark:bg-green-950/40 dark:text-green-400 dark:border-green-900"
         }
-        ${selected ? "ring-2 ring-offset-2 ring-primary" : ""}
+        ${selected ? `ring-2 ring-offset-2 ${needsService ? "ring-destructive" : "ring-primary"}` : ""}
       `}
     >
       <p className="text-[10px] font-medium opacity-50 uppercase tracking-widest mb-1">Table</p>
@@ -438,6 +465,12 @@ function MobileSheet({
   const [guestCount, setGuestCount] = useState(table.guestCount ?? 2);
   const [error, setError] = useState<string | null>(null);
   const occupied = table.sessionId !== null;
+  const needsService = table.status === "needs_service";
+  const statusLabel = needsService
+    ? "Needs service"
+    : occupied
+      ? "Occupied"
+      : "Available";
 
   function handleOpen() {
     startTransition(async () => {
@@ -467,13 +500,19 @@ function MobileSheet({
         <div className="flex items-center gap-2">
           <span
             className={`flex items-center gap-1.5 text-xs font-medium px-2.5 py-1 rounded-full
-              ${occupied
+              ${needsService
+                ? "bg-destructive/10 text-destructive"
+                : occupied
                 ? "bg-primary/10 text-primary"
                 : "bg-green-100 text-green-700 dark:bg-green-950/50 dark:text-green-400"
               }`}
           >
-            <span className={`h-1.5 w-1.5 rounded-full ${occupied ? "bg-primary" : "bg-green-500"}`} />
-            {occupied ? "Occupied" : "Available"}
+            <span
+              className={`h-1.5 w-1.5 rounded-full ${
+                needsService ? "bg-destructive" : occupied ? "bg-primary" : "bg-green-500"
+              }`}
+            />
+            {statusLabel}
           </span>
           <button onClick={onClose} className="rounded-full p-1.5 hover:bg-muted">
             <X size={16} />

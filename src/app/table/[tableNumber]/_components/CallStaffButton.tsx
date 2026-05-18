@@ -1,19 +1,37 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useTransition } from "react";
 import { Bell, Check } from "lucide-react";
+import { callStaff } from "../actions";
 
-export function CallStaffButton({ tableId }: { tableId: number }) {
+export function CallStaffButton({
+  tableId,
+  sessionId,
+}: {
+  tableId: number;
+  sessionId: number;
+}) {
   const [open, setOpen] = useState(false);
   const [confirmed, setConfirmed] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const [isPending, startTransition] = useTransition();
 
   function handleCall() {
-    setConfirmed(true);
+    setError(null);
+    startTransition(async () => {
+      const result = await callStaff(tableId, sessionId);
+      if (result.ok) {
+        setConfirmed(true);
+      } else {
+        setError(result.error ?? "Could not call staff.");
+      }
+    });
   }
 
   function handleClose() {
     setOpen(false);
     setConfirmed(false);
+    setError(null);
   }
 
   useEffect(() => {
@@ -62,17 +80,20 @@ export function CallStaffButton({ tableId }: { tableId: number }) {
                 <div className="flex gap-3">
                   <button
                     onClick={handleClose}
+                    disabled={isPending}
                     className="flex-1 rounded-full border border-border py-2.5 text-sm font-medium transition-colors hover:bg-muted"
                   >
                     Cancel
                   </button>
                   <button
                     onClick={handleCall}
+                    disabled={isPending}
                     className="flex-1 rounded-full bg-primary py-2.5 text-sm font-semibold text-primary-foreground transition-opacity active:opacity-70"
                   >
-                    Call staff
+                    {isPending ? "Calling..." : "Call staff"}
                   </button>
                 </div>
+                {error && <p className="mt-3 text-center text-sm text-destructive">{error}</p>}
               </>
             )}
           </div>

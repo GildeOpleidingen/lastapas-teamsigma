@@ -15,6 +15,7 @@ interface CartItem {
 interface CartBarProps {
   cart: CartItem[];
   maxItems: number;
+  tableId: number;
   sessionId: number;
   lastOrderAt: number | null;
   onOrderPlaced: (placedAt: number) => void;
@@ -29,7 +30,14 @@ function formatCountdown(ms: number) {
   return `${m}:${s}`;
 }
 
-export function CartBar({ cart, maxItems, sessionId, lastOrderAt, onOrderPlaced }: CartBarProps) {
+export function CartBar({
+  cart,
+  maxItems,
+  tableId,
+  sessionId,
+  lastOrderAt,
+  onOrderPlaced,
+}: CartBarProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
@@ -55,8 +63,9 @@ export function CartBar({ cart, maxItems, sessionId, lastOrderAt, onOrderPlaced 
     setError(null);
     startTransition(async () => {
       const result = await placeOrder(
+        tableId,
         sessionId,
-        cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity, unitPriceCents: c.unitPriceCents }))
+        cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity }))
       );
       if (result.ok) {
         const placedAt = Date.now();

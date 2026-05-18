@@ -147,6 +147,7 @@ export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt
       <CartBar
         cart={cart}
         maxItems={maxItems}
+        tableId={tableId}
         sessionId={sessionId}
         lastOrderAt={currentLastOrderAt}
         onOrderPlaced={(placedAt) => {
@@ -154,7 +155,7 @@ export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt
           setCurrentLastOrderAt(placedAt);
         }}
       />
-      <CallStaffButton tableId={tableId} />
+      <CallStaffButton tableId={tableId} sessionId={sessionId} />
     </>
   );
 }

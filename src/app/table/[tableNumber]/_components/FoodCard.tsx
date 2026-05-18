@@ -1,3 +1,4 @@
+import Image from "next/image";
 import { Plus } from "lucide-react";
 import type { menuItems } from "@/db/schema";
 import type { InferSelectModel } from "drizzle-orm";
@@ -19,9 +20,12 @@ export function FoodCard({ item, showPrice, quantity, onAdd, disabled }: FoodCar
     <div className="flex items-center gap-3 rounded-2xl bg-card px-3 py-3 shadow-sm">
       <div className="relative shrink-0">
         {item.imageUrl ? (
-          <img
+          <Image
             src={item.imageUrl}
             alt={item.name}
+            width={80}
+            height={80}
+            unoptimized
             className="h-20 w-20 rounded-xl object-cover"
           />
         ) : (

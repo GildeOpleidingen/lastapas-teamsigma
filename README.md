@@ -20,12 +20,19 @@ npm install
 
 **2. Set up environment variables**
 
-Copy `.env.example` to `.env.local` and fill in your Neon connection string:
+Copy `.env.example` to `.env.local` and fill in your Neon connection string, admin passcode, app secret, and Pusher credentials:
 ```bash
 cp .env.example .env.local
 ```
 
 Get the connection string from your Neon project dashboard → **Connection Details** → select **Pooled connection**.
+
+Create `APP_SECRET` with a strong random value, for example:
+```bash
+openssl rand -base64 32
+```
+
+Create a Pusher Channels app and copy its app id, key, secret, and cluster into the matching `PUSHER_*` variables. Variables prefixed with `NEXT_PUBLIC_` are intentionally exposed to the browser for the Pusher client.
 
 **3. Push the database schema**
 

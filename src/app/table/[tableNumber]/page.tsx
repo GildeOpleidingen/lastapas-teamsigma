@@ -1,10 +1,10 @@
 import { notFound } from "next/navigation";
-import { cookies } from "next/headers";
 import { db } from "@/db";
 import { menuItems, orders, restaurantTables, tableSessions } from "@/db/schema";
 import { and, desc, eq } from "drizzle-orm";
 import { MenuContent } from "./_components/MenuContent";
 import { CodeEntry } from "./_components/CodeEntry";
+import { hasTableAccess } from "@/lib/table-access";
 
 export default async function TablePage({
   params,
@@ -48,9 +48,7 @@ export default async function TablePage({
 
   // Code gate — check cookie against session ID so re-opened tables require a new code
   if (session.accessCode) {
-    const cookieStore = await cookies();
-    const accessCookie = cookieStore.get(`t${tableId}_access`);
-    const verified = accessCookie?.value === String(session.id);
+    const verified = await hasTableAccess(tableId, session.id, session.accessCode);
 
     if (!verified) {
       return (
