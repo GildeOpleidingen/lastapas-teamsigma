@@ -1,4 +1,8 @@
 import { notFound } from "next/navigation";
+import { db } from "@/db";
+import { menuItems } from "@/db/schema";
+import { eq } from "drizzle-orm";
+import { MenuContent } from "./_components/MenuContent";
 
 export default async function TablePage({
   params,
@@ -10,17 +14,16 @@ export default async function TablePage({
     notFound();
   }
 
+  const items = await db
+    .select()
+    .from(menuItems)
+    .where(eq(menuItems.isAvailable, true))
+    .orderBy(menuItems.displayOrder)
+    .catch(() => []);
+
   return (
-    <main className="flex min-h-screen flex-col gap-6 bg-background px-6 py-10 text-foreground">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Guest table
-        </p>
-        <h1 className="text-3xl font-semibold">Table {tableId}</h1>
-      </div>
-      <p className="max-w-2xl text-muted-foreground">
-        This page is ready for the table ordering experience.
-      </p>
+    <main className="flex min-h-screen flex-col bg-background text-foreground">
+      <MenuContent tableId={tableId} items={items} />
     </main>
   );
 }

@@ -1,36 +1,83 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Las Tapas — Team Sigma
 
-## Getting Started
+Restaurant table-ordering web app. Guests scan a QR code at their table and order from their phone.
 
-First, run the development server:
+---
 
+## Prerequisites
+
+- Node.js 20+
+- A [Neon](https://neon.tech) PostgreSQL database (free tier is fine)
+
+---
+
+## Setup
+
+**1. Install dependencies**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Set up environment variables**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` and fill in your Neon connection string:
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Get the connection string from your Neon project dashboard → **Connection Details** → select **Pooled connection**.
 
-## Learn More
+**3. Push the database schema**
 
-To learn more about Next.js, take a look at the following resources:
+This creates all tables in your database. Run once after cloning:
+```bash
+npx drizzle-kit push
+```
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**4. Start the dev server**
+```bash
+npm run dev
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+App runs at `http://localhost:3000`.
 
-## Deploy on Vercel
+---
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Scripts
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+
+---
+
+## After changing the database schema
+
+Whenever you edit `src/db/schema.ts`, push the changes to the database:
+```bash
+npx drizzle-kit push
+```
+
+To inspect the database visually:
+```bash
+npx drizzle-kit studio
+```
+
+---
+
+## Project structure
+
+```
+src/
+  app/
+    admin/        # Admin dashboard (menu management, table overview)
+    kitchen/      # Kitchen display — incoming orders
+    staff/        # Staff view
+    table/[tableNumber]/  # Guest-facing menu & ordering
+  db/
+    index.ts      # Drizzle database client
+    schema.ts     # All table definitions
+```
