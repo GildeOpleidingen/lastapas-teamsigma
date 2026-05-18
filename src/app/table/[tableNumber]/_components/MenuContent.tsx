@@ -5,8 +5,18 @@ import type { InferSelectModel } from "drizzle-orm";
 import type { menuItems } from "@/db/schema";
 import { MenuHeader } from "./MenuHeader";
 import { FoodCard } from "./FoodCard";
+import { CartBar } from "./CartBar";
+import { CallStaffButton } from "./CallStaffButton";
 
 type MenuItem = InferSelectModel<typeof menuItems>;
+
+interface CartItem {
+  menuItemId: number;
+  name: string;
+  category: string;
+  quantity: number;
+  unitPriceCents: number;
+}
 
 export const CATEGORIES = [
   "Popular",
@@ -63,10 +73,31 @@ const PLACEHOLDER_ITEMS: Record<string, MenuItem[]> = {
 interface MenuContentProps {
   tableId: number;
   items: MenuItem[];
+  sessionId: number;
+  guestCount: number | null;
+  lastOrderAt: number | null;
 }
 
-export function MenuContent({ tableId, items }: MenuContentProps) {
+export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt }: MenuContentProps) {
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
+  const [cart, setCart] = useState<CartItem[]>([]);
+  const [currentLastOrderAt, setCurrentLastOrderAt] = useState(lastOrderAt);
+
+  const maxItems = (guestCount ?? 2) * 2;
+  const foodInCart = cart.filter((i) => i.category !== "Drinks").reduce((s, i) => s + i.quantity, 0);
+
+  function addToCart(item: MenuItem) {
+    if (item.category !== "Drinks" && foodInCart >= maxItems) return;
+    setCart((prev) => {
+      const existing = prev.find((c) => c.menuItemId === item.id);
+      if (existing) {
+        return prev.map((c) =>
+          c.menuItemId === item.id ? { ...c, quantity: c.quantity + 1 } : c
+        );
+      }
+      return [...prev, { menuItemId: item.id, name: item.name, category: item.category, quantity: 1, unitPriceCents: item.currentUnitPriceCents }];
+    });
+  }
 
   const dbItems = items.filter((item) => item.category === activeCategory);
   const displayItems = dbItems.length > 0 ? dbItems : (PLACEHOLDER_ITEMS[activeCategory] ?? []);
@@ -79,17 +110,40 @@ export function MenuContent({ tableId, items }: MenuContentProps) {
         activeCategory={activeCategory}
         onCategoryChange={setActiveCategory}
       />
-      <div className="flex flex-col gap-3 px-4 py-4">
+      <div className="flex flex-col gap-3 px-4 py-4 pb-32">
         <div>
           <h2 className="text-xl font-bold">{activeCategory}</h2>
           <p className="text-sm text-muted-foreground">Guest favorites</p>
         </div>
         <div className="flex flex-col gap-3">
-          {displayItems.map((item) => (
-            <FoodCard key={item.id} item={item} showPrice={showPrice} />
-          ))}
+          {displayItems.map((item) => {
+            const cartEntry = cart.find((c) => c.menuItemId === item.id);
+            const quantity = cartEntry?.quantity ?? 0;
+            const capReached = item.category !== "Drinks" && foodInCart >= maxItems;
+            return (
+              <FoodCard
+                key={item.id}
+                item={item}
+                showPrice={showPrice}
+                quantity={quantity}
+                onAdd={() => addToCart(item)}
+                disabled={capReached}
+              />
+            );
+          })}
         </div>
       </div>
+      <CartBar
+        cart={cart}
+        maxItems={maxItems}
+        sessionId={sessionId}
+        lastOrderAt={currentLastOrderAt}
+        onOrderPlaced={(placedAt) => {
+          setCart([]);
+          setCurrentLastOrderAt(placedAt);
+        }}
+      />
+      <CallStaffButton tableId={tableId} />
     </>
   );
 }

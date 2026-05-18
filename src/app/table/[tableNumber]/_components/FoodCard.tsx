@@ -7,9 +7,12 @@ type MenuItem = InferSelectModel<typeof menuItems>;
 interface FoodCardProps {
   item: MenuItem;
   showPrice: boolean;
+  quantity: number;
+  onAdd: () => void;
+  disabled: boolean;
 }
 
-export function FoodCard({ item, showPrice }: FoodCardProps) {
+export function FoodCard({ item, showPrice, quantity, onAdd, disabled }: FoodCardProps) {
   const price = (item.currentUnitPriceCents / 100).toFixed(2);
 
   return (
@@ -38,12 +41,21 @@ export function FoodCard({ item, showPrice }: FoodCardProps) {
         )}
       </div>
 
-      <button
-        className="ml-1 shrink-0 rounded-full bg-primary p-2 text-primary-foreground shadow transition-opacity active:opacity-70"
-        aria-label={`Add ${item.name}`}
-      >
-        <Plus size={16} />
-      </button>
+      <div className="relative ml-1 shrink-0">
+        <button
+          onClick={onAdd}
+          disabled={disabled && quantity === 0}
+          className="rounded-full bg-primary p-2 text-primary-foreground shadow transition-opacity active:opacity-70 disabled:opacity-30 disabled:cursor-not-allowed"
+          aria-label={`Add ${item.name}`}
+        >
+          <Plus size={16} />
+        </button>
+        {quantity > 0 && (
+          <span className="absolute -top-1.5 -right-1.5 flex h-5 w-5 items-center justify-center rounded-full bg-foreground text-[10px] font-bold text-background">
+            {quantity}
+          </span>
+        )}
+      </div>
     </div>
   );
 }
