@@ -329,11 +329,8 @@ export function TableGrid({ tables }: { tables: TableRow[] }) {
   return (
     <>
       {/* ── Desktop: floor plan ── */}
-      <div className="hidden md:block">
-        <div
-          className="relative w-full overflow-hidden rounded-2xl border border-border bg-card"
-          style={{ paddingBottom: "56%" }}
-        >
+      <div className="hidden md:h-full md:block">
+        <div className="relative h-full w-full overflow-hidden rounded-2xl border border-border bg-card">
           {/* Floor decorations */}
           <div className="absolute inset-0 pointer-events-none">
             <div
@@ -368,7 +365,7 @@ export function TableGrid({ tables }: { tables: TableRow[] }) {
       </div>
 
       {/* ── Mobile: card grid + fixed bottom sheet ── */}
-      <div className="md:hidden">
+      <div className="h-full overflow-y-auto md:hidden">
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
           {tables.map(table => (
             <MobileTableCard

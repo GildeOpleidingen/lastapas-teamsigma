@@ -25,14 +25,16 @@ export default async function AdminTablesPage() {
     .catch(() => []);
 
   return (
-    <main className="flex min-h-screen flex-col gap-6 bg-background px-4 py-8 text-foreground">
-      <div>
+    <main className="flex h-dvh flex-col gap-4 overflow-hidden bg-background px-4 py-6 text-foreground">
+      <div className="shrink-0">
         <p className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
           Admin
         </p>
         <h1 className="text-2xl font-bold">Tables</h1>
       </div>
-      <TableGrid tables={tables.map(t => ({ ...t, sessionCreatedAt: t.sessionCreatedAt?.getTime() ?? null }))} />
+      <div className="min-h-0 flex-1">
+        <TableGrid tables={tables.map(t => ({ ...t, sessionCreatedAt: t.sessionCreatedAt?.getTime() ?? null }))} />
+      </div>
     </main>
   );
 }
