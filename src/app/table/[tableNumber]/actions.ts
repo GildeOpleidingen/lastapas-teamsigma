@@ -4,6 +4,8 @@ import { db } from "@/db";
 import { menuItems, orders, orderItems, tableSessions } from "@/db/schema";
 import { and, eq, count, desc } from "drizzle-orm";
 import { cookies } from "next/headers";
+import { revalidatePath } from "next/cache";
+import { pusherServer } from "@/lib/pusher-server";
 
 const COOLDOWN_MS = 10 * 1000; // TODO: change back to 10 * 60 * 1000 for production
 
@@ -113,6 +115,9 @@ export async function placeOrder(
         unitPriceCents: l.unitPriceCents,
       }))
     );
+
+    revalidatePath("/admin/tables");
+    await pusherServer.trigger("admin-tables", "refresh", {});
 
     return { ok: true };
   } catch {

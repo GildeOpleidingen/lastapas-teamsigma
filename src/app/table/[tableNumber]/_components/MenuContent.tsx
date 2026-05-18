@@ -1,12 +1,14 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useRouter } from "next/navigation";
 import type { InferSelectModel } from "drizzle-orm";
 import type { menuItems } from "@/db/schema";
 import { MenuHeader } from "./MenuHeader";
 import { FoodCard } from "./FoodCard";
 import { CartBar } from "./CartBar";
 import { CallStaffButton } from "./CallStaffButton";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 type MenuItem = InferSelectModel<typeof menuItems>;
 
@@ -79,6 +81,15 @@ interface MenuContentProps {
 }
 
 export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt }: MenuContentProps) {
+  useRealtimeRefresh("menu");
+
+  // 60 s fallback in case Pusher connection drops
+  const router = useRouter();
+  useEffect(() => {
+    const id = setInterval(() => router.refresh(), 60_000);
+    return () => clearInterval(id);
+  }, [router]);
+
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
   const [cart, setCart] = useState<CartItem[]>([]);
   const [currentLastOrderAt, setCurrentLastOrderAt] = useState(lastOrderAt);

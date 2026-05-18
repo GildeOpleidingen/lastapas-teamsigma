@@ -3,6 +3,8 @@
 import { db } from "@/db";
 import { restaurantTables, tableSessions } from "@/db/schema";
 import { and, eq } from "drizzle-orm";
+import { revalidatePath } from "next/cache";
+import { pusherServer } from "@/lib/pusher-server";
 
 function generateAccessCode(): string {
   const chars = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
@@ -38,6 +40,9 @@ export async function openTable(
       .set({ status: "occupied", updatedAt: new Date() })
       .where(eq(restaurantTables.id, tableId));
 
+    revalidatePath("/admin/tables");
+    await pusherServer.trigger("admin-tables", "refresh", {});
+
     return { ok: true, accessCode };
   } catch {
     return { ok: false, error: "Something went wrong." };
@@ -57,6 +62,9 @@ export async function closeTable(
       .update(restaurantTables)
       .set({ status: "available", updatedAt: new Date() })
       .where(eq(restaurantTables.id, tableId));
+
+    revalidatePath("/admin/tables");
+    await pusherServer.trigger("admin-tables", "refresh", {});
 
     return { ok: true };
   } catch {

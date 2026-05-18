@@ -4,6 +4,7 @@ import { useState, useEffect, useTransition } from "react";
 import { useRouter } from "next/navigation";
 import { Users, X, Clock, UtensilsCrossed } from "lucide-react";
 import { openTable, closeTable } from "../actions";
+import { useRealtimeRefresh } from "@/hooks/useRealtimeRefresh";
 
 interface TableRow {
   id: number;
@@ -535,6 +536,7 @@ function SeedPrompt() {
 // ── Main export ───────────────────────────────────────────────────────────────
 
 export function TableGrid({ tables }: { tables: TableRow[] }) {
+  useRealtimeRefresh("admin-tables");
   const [floor, setFloor] = useState<Floor>("first");
   const [selectedId, setSelectedId] = useState<number | null>(null);
   const now = useNow();
