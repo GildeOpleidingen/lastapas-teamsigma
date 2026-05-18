@@ -11,6 +11,7 @@ export default async function AdminTablesPage() {
       status: restaurantTables.status,
       sessionId: tableSessions.id,
       guestCount: tableSessions.guestCount,
+      accessCode: tableSessions.accessCode,
       sessionCreatedAt: tableSessions.createdAt,
       roundsOrdered: max(orders.roundNumber),
     })
@@ -39,6 +40,7 @@ export default async function AdminTablesPage() {
         <TableGrid
           tables={tables.map(t => ({
             ...t,
+            accessCode: t.accessCode ?? null,
             sessionCreatedAt: t.sessionCreatedAt?.getTime() ?? null,
             roundsOrdered: t.roundsOrdered ?? null,
           }))}

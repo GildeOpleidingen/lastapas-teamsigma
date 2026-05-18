@@ -50,6 +50,7 @@ export const tableSessions = pgTable(
       .references(() => restaurantTables.id),
     status: tableSessionStatusEnum("status").notNull().default("active"),
     guestCount: integer("guest_count"),
+    accessCode: varchar("access_code", { length: 6 }),
     createdAt: timestamp("created_at", { withTimezone: true })
       .defaultNow()
       .notNull(),

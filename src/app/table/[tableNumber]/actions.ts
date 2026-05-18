@@ -2,9 +2,34 @@
 
 import { db } from "@/db";
 import { menuItems, orders, orderItems, tableSessions } from "@/db/schema";
-import { eq, count, desc } from "drizzle-orm";
+import { and, eq, count, desc } from "drizzle-orm";
+import { cookies } from "next/headers";
 
 const COOLDOWN_MS = 10 * 1000; // TODO: change back to 10 * 60 * 1000 for production
+
+export async function verifyTableCode(
+  tableId: number,
+  sessionId: number,
+  code: string
+): Promise<{ ok: boolean; error?: string }> {
+  const [session] = await db
+    .select({ accessCode: tableSessions.accessCode })
+    .from(tableSessions)
+    .where(and(eq(tableSessions.id, sessionId), eq(tableSessions.status, "active")));
+
+  if (!session || session.accessCode?.toUpperCase() !== code.toUpperCase().trim()) {
+    return { ok: false, error: "Incorrect code. Ask your server." };
+  }
+
+  const cookieStore = await cookies();
+  cookieStore.set(`t${tableId}_access`, String(sessionId), {
+    httpOnly: true,
+    sameSite: "lax",
+    path: `/table/${tableId}`,
+  });
+
+  return { ok: true };
+}
 
 interface OrderLine {
   menuItemId: number;
