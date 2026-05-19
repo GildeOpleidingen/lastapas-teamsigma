@@ -33,7 +33,6 @@ export default async function AdminTablesPage() {
       status: restaurantTables.status,
       sessionId: tableSessions.id,
       guestCount: tableSessions.guestCount,
-      accessCode: tableSessions.accessCode,
       sessionCreatedAt: tableSessions.createdAt,
       roundsOrdered: max(orders.roundNumber),
     })
@@ -47,8 +46,7 @@ export default async function AdminTablesPage() {
     )
     .leftJoin(orders, eq(orders.tableSessionId, tableSessions.id))
     .groupBy(restaurantTables.id, tableSessions.id)
-    .orderBy(restaurantTables.tableNumber)
-    .catch(() => []);
+    .orderBy(restaurantTables.tableNumber);
 
   return (
     <main className="flex h-dvh flex-col gap-4 overflow-hidden bg-background px-4 py-6 text-foreground">
@@ -72,7 +70,6 @@ export default async function AdminTablesPage() {
         <TableGrid
           tables={tables.map(t => ({
             ...t,
-            accessCode: t.accessCode ?? null,
             sessionCreatedAt: t.sessionCreatedAt?.getTime() ?? null,
             roundsOrdered: t.roundsOrdered ?? null,
           }))}

@@ -11,7 +11,14 @@ export function tableAccessCookieName(tableNumber: number) {
 }
 
 function tableAccessSecret(accessCode: string) {
-  return `${process.env.APP_SECRET ?? "development-table-access"}:${accessCode}`;
+  const appSecret =
+    process.env.APP_SECRET ?? process.env.ADMIN_SESSION_SECRET;
+
+  if (!appSecret && process.env.NODE_ENV === "production") {
+    throw new Error("APP_SECRET or ADMIN_SESSION_SECRET is required.");
+  }
+
+  return `${appSecret ?? "development-table-access"}:${accessCode}`;
 }
 
 export async function setTableAccessCookie(
@@ -41,7 +48,7 @@ export async function hasTableAccess(
   sessionId: number,
   accessCode: string | null
 ) {
-  if (!accessCode) return true;
+  if (!accessCode) return false;
 
   const cookieStore = await cookies();
   const payload = readSignedCookieValue(

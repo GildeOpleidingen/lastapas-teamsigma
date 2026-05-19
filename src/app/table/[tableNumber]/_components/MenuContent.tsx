@@ -24,6 +24,7 @@ export const CATEGORIES = [
   "Popular",
   "Cold Tapas",
   "Hot Tapas",
+  "Specialties",
   "Meat",
   "Fish",
   "Desserts",
@@ -48,6 +49,11 @@ const PLACEHOLDER_ITEMS: Record<string, MenuItem[]> = {
     { id: -8, name: "Pimientos de Padrón", description: "Pan-fried Padrón peppers with sea salt flakes", category: "Hot Tapas", currentUnitPriceCents: 700, imageUrl: null, displayOrder: 0, isAvailable: true, createdAt: t, updatedAt: t },
     { id: -9, name: "Champiñones al Ajillo", description: "Sautéed mushrooms with garlic and fresh herbs", category: "Hot Tapas", currentUnitPriceCents: 800, imageUrl: null, displayOrder: 1, isAvailable: true, createdAt: t, updatedAt: t },
     { id: -10, name: "Calamares a la Romana", description: "Lightly battered squid rings with lemon aioli", category: "Hot Tapas", currentUnitPriceCents: 1050, imageUrl: null, displayOrder: 2, isAvailable: true, createdAt: t, updatedAt: t },
+  ],
+  Specialties: [
+    { id: -24, name: "Tortilla Espanola", description: "Traditional Spanish omelette with potato and onion", category: "Specialties", currentUnitPriceCents: 850, imageUrl: null, displayOrder: 0, isAvailable: true, createdAt: t, updatedAt: t },
+    { id: -25, name: "Pulpo a la Gallega", description: "Galician-style octopus with paprika and olive oil", category: "Specialties", currentUnitPriceCents: 1500, imageUrl: null, displayOrder: 1, isAvailable: true, createdAt: t, updatedAt: t },
+    { id: -26, name: "Mini Paella", description: "Small paella with saffron rice and seasonal toppings", category: "Specialties", currentUnitPriceCents: 1300, imageUrl: null, displayOrder: 2, isAvailable: true, createdAt: t, updatedAt: t },
   ],
   Meat: [
     { id: -11, name: "Albóndigas en Salsa", description: "Slow-cooked meatballs in a rich tomato and herb sauce", category: "Meat", currentUnitPriceCents: 1100, imageUrl: null, displayOrder: 0, isAvailable: true, createdAt: t, updatedAt: t },
@@ -77,10 +83,16 @@ interface MenuContentProps {
   items: MenuItem[];
   sessionId: number;
   guestCount: number | null;
-  lastOrderAt: number | null;
+  cooldownEndsAt: number | null;
 }
 
-export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt }: MenuContentProps) {
+export function MenuContent({
+  tableId,
+  items,
+  sessionId,
+  guestCount,
+  cooldownEndsAt,
+}: MenuContentProps) {
   useRealtimeRefresh("menu");
 
   // 60 s fallback in case Pusher connection drops
@@ -92,7 +104,6 @@ export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt
 
   const [activeCategory, setActiveCategory] = useState(CATEGORIES[0]);
   const [cart, setCart] = useState<CartItem[]>([]);
-  const [currentLastOrderAt, setCurrentLastOrderAt] = useState(lastOrderAt);
 
   const maxItems = (guestCount ?? 2) * 2;
   const foodInCart = cart.filter((i) => i.category !== "Drinks").reduce((s, i) => s + i.quantity, 0);
@@ -149,10 +160,9 @@ export function MenuContent({ tableId, items, sessionId, guestCount, lastOrderAt
         maxItems={maxItems}
         tableId={tableId}
         sessionId={sessionId}
-        lastOrderAt={currentLastOrderAt}
-        onOrderPlaced={(placedAt) => {
+        cooldownEndsAt={cooldownEndsAt}
+        onOrderPlaced={() => {
           setCart([]);
-          setCurrentLastOrderAt(placedAt);
         }}
       />
       <CallStaffButton tableId={tableId} sessionId={sessionId} />

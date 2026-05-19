@@ -2,12 +2,11 @@
 
 import { db } from "@/db";
 import { menuItems, orders, restaurantTables, tableSessions } from "@/db/schema";
+import { ORDER_COOLDOWN_MS } from "@/lib/order-policy";
 import { and, desc, eq, inArray, sql } from "drizzle-orm";
 import { revalidatePath } from "next/cache";
 import { triggerRealtime } from "@/lib/pusher-server";
-import { hasTableAccess, setTableAccessCookie } from "@/lib/table-access";
 
-const COOLDOWN_MS = 10 * 1000; // TODO: change back to 10 * 60 * 1000 for production
 const MAX_TOTAL_ITEMS = 100;
 const MAX_QUANTITY_PER_LINE = 50;
 
@@ -16,15 +15,34 @@ interface OrderLine {
   quantity: number;
 }
 
+type PlaceOrderResult =
+  | { ok: true; cooldownEndsAt: number }
+  | { ok: false; error?: string; cooldownEndsAt?: number };
+
 interface ActiveTableSession {
   id: number;
   tableId: number;
   guestCount: number | null;
-  accessCode: string | null;
 }
 
-function isValidId(value: number) {
-  return Number.isInteger(value) && value > 0;
+function isInteger(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value);
+}
+
+function isValidId(value: unknown): value is number {
+  return isInteger(value) && value > 0;
+}
+
+function cooldownEndsAtFor(createdAt: Date) {
+  return createdAt.getTime() + ORDER_COOLDOWN_MS;
+}
+
+function cooldownError(cooldownEndsAt: number): PlaceOrderResult {
+  return {
+    ok: false,
+    error: "Still in cooldown. Please wait before ordering again.",
+    cooldownEndsAt,
+  };
 }
 
 async function getActiveTableSession(
@@ -36,7 +54,6 @@ async function getActiveTableSession(
       id: tableSessions.id,
       tableId: tableSessions.tableId,
       guestCount: tableSessions.guestCount,
-      accessCode: tableSessions.accessCode,
     })
     .from(tableSessions)
     .innerJoin(restaurantTables, eq(restaurantTables.id, tableSessions.tableId))
@@ -51,9 +68,15 @@ async function getActiveTableSession(
   return session ?? null;
 }
 
-function normalizeOrderLines(lines: OrderLine[]) {
+function normalizeOrderLines(
+  lines: unknown
+): { lines: OrderLine[] } | { error: string } {
   if (!Array.isArray(lines) || lines.length === 0) {
     return { error: "Choose at least one item." };
+  }
+
+  if (lines.length > MAX_TOTAL_ITEMS) {
+    return { error: "Too many items in this order." };
   }
 
   const quantityByItemId = new Map<number, number>();
@@ -63,26 +86,31 @@ function normalizeOrderLines(lines: OrderLine[]) {
       return { error: "Invalid order item." };
     }
 
-    const { menuItemId, quantity } = line;
+    const { menuItemId, quantity } = line as {
+      menuItemId?: unknown;
+      quantity?: unknown;
+    };
 
-    if (menuItemId < 0) {
+    if (isInteger(menuItemId) && menuItemId < 0) {
       return { error: "The menu hasn't been set up yet. Ask a staff member." };
     }
 
     if (
-      !Number.isInteger(menuItemId) ||
+      !isInteger(menuItemId) ||
       menuItemId <= 0 ||
-      !Number.isInteger(quantity) ||
+      !isInteger(quantity) ||
       quantity <= 0 ||
       quantity > MAX_QUANTITY_PER_LINE
     ) {
       return { error: "Invalid order item." };
     }
 
-    quantityByItemId.set(
-      menuItemId,
-      (quantityByItemId.get(menuItemId) ?? 0) + quantity
-    );
+    const nextQuantity = (quantityByItemId.get(menuItemId) ?? 0) + quantity;
+    if (nextQuantity > MAX_QUANTITY_PER_LINE) {
+      return { error: "Invalid order item." };
+    }
+
+    quantityByItemId.set(menuItemId, nextQuantity);
   }
 
   const normalized = [...quantityByItemId.entries()].map(
@@ -97,34 +125,9 @@ function normalizeOrderLines(lines: OrderLine[]) {
   return { lines: normalized };
 }
 
-export async function verifyTableCode(
-  tableNumber: number,
-  sessionId: number,
-  code: string
-): Promise<{ ok: boolean; error?: string }> {
-  if (!isValidId(tableNumber) || !isValidId(sessionId)) {
-    return { ok: false, error: "Invalid table session." };
-  }
-
-  if (typeof code !== "string") {
-    return { ok: false, error: "Incorrect code. Ask your server." };
-  }
-
-  const session = await getActiveTableSession(tableNumber, sessionId);
-  const normalizedCode = code.toUpperCase().trim();
-
-  if (!session || session.accessCode?.toUpperCase() !== normalizedCode) {
-    return { ok: false, error: "Incorrect code. Ask your server." };
-  }
-
-  await setTableAccessCookie(tableNumber, session.id, session.accessCode);
-
-  return { ok: true };
-}
-
 export async function callStaff(
-  tableNumber: number,
-  sessionId: number
+  tableNumber: unknown,
+  sessionId: unknown
 ): Promise<{ ok: boolean; error?: string }> {
   if (!isValidId(tableNumber) || !isValidId(sessionId)) {
     return { ok: false, error: "Invalid table session." };
@@ -132,10 +135,6 @@ export async function callStaff(
 
   const session = await getActiveTableSession(tableNumber, sessionId);
   if (!session) return { ok: false, error: "Session not found." };
-
-  if (!(await hasTableAccess(tableNumber, sessionId, session.accessCode))) {
-    return { ok: false, error: "Enter your table code again." };
-  }
 
   try {
     await db
@@ -157,10 +156,10 @@ export async function callStaff(
 }
 
 export async function placeOrder(
-  tableNumber: number,
-  sessionId: number,
-  lines: OrderLine[]
-): Promise<{ ok: boolean; error?: string }> {
+  tableNumber: unknown,
+  sessionId: unknown,
+  lines: unknown
+): Promise<PlaceOrderResult> {
   try {
     if (!isValidId(tableNumber) || !isValidId(sessionId)) {
       return { ok: false, error: "Invalid table session." };
@@ -168,10 +167,6 @@ export async function placeOrder(
 
     const session = await getActiveTableSession(tableNumber, sessionId);
     if (!session) return { ok: false, error: "Session not found." };
-
-    if (!(await hasTableAccess(tableNumber, sessionId, session.accessCode))) {
-      return { ok: false, error: "Enter your table code again." };
-    }
 
     const normalized = normalizeOrderLines(lines);
     if ("error" in normalized) return { ok: false, error: normalized.error };
@@ -207,11 +202,11 @@ export async function placeOrder(
       .orderBy(desc(orders.createdAt))
       .limit(1);
 
-    if (lastOrder && Date.now() - lastOrder.createdAt.getTime() < COOLDOWN_MS) {
-      return {
-        ok: false,
-        error: "Still in cooldown. Please wait before ordering again.",
-      };
+    if (lastOrder) {
+      const cooldownEndsAt = cooldownEndsAtFor(lastOrder.createdAt);
+      if (Date.now() < cooldownEndsAt) {
+        return cooldownError(cooldownEndsAt);
+      }
     }
 
     const payload = normalized.lines.map((line) => {
@@ -241,7 +236,7 @@ export async function placeOrder(
             SELECT 1
             FROM "orders" AS o
             WHERE o."table_session_id" = ts."id"
-              AND o."created_at" > now() - (${COOLDOWN_MS} * interval '1 millisecond')
+              AND o."created_at" > now() - (${ORDER_COOLDOWN_MS} * interval '1 millisecond')
           )
       ),
       next_round AS (
@@ -283,17 +278,33 @@ export async function placeOrder(
       SELECT "id" AS "orderId" FROM created_order
     `);
 
-    if (result.rows.length === 0) {
-      return {
-        ok: false,
-        error: "Still in cooldown. Please wait before ordering again.",
-      };
+    const createdOrder = result.rows[0];
+    if (!createdOrder) {
+      const [latestOrder] = await db
+        .select({ createdAt: orders.createdAt })
+        .from(orders)
+        .where(eq(orders.tableSessionId, sessionId))
+        .orderBy(desc(orders.createdAt))
+        .limit(1);
+
+      return cooldownError(
+        latestOrder ? cooldownEndsAtFor(latestOrder.createdAt) : Date.now() + ORDER_COOLDOWN_MS
+      );
     }
+
+    const [createdOrderRow] = await db
+      .select({ createdAt: orders.createdAt })
+      .from(orders)
+      .where(eq(orders.id, createdOrder.orderId))
+      .limit(1);
 
     revalidatePath("/admin/tables");
     await triggerRealtime("admin-tables", "refresh", {});
 
-    return { ok: true };
+    return {
+      ok: true,
+      cooldownEndsAt: cooldownEndsAtFor(createdOrderRow?.createdAt ?? new Date()),
+    };
   } catch {
     return { ok: false, error: "Something went wrong. Please try again." };
   }

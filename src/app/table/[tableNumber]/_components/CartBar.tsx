@@ -17,11 +17,9 @@ interface CartBarProps {
   maxItems: number;
   tableId: number;
   sessionId: number;
-  lastOrderAt: number | null;
-  onOrderPlaced: (placedAt: number) => void;
+  cooldownEndsAt: number | null;
+  onOrderPlaced: () => void;
 }
-
-const COOLDOWN_MS = 10 * 1000; // TODO: change back to 10 * 60 * 1000 for production
 
 function formatCountdown(ms: number) {
   const total = Math.max(0, Math.ceil(ms / 1000));
@@ -35,16 +33,17 @@ export function CartBar({
   maxItems,
   tableId,
   sessionId,
-  lastOrderAt,
+  cooldownEndsAt,
   onOrderPlaced,
 }: CartBarProps) {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
   const [now, setNow] = useState(() => Date.now());
-  const [localLastOrderAt, setLocalLastOrderAt] = useState(lastOrderAt);
+  const [localCooldownEndsAt, setLocalCooldownEndsAt] = useState<number | null>(null);
 
-  const cooldownEnds = localLastOrderAt ? localLastOrderAt + COOLDOWN_MS : null;
-  const remainingMs = cooldownEnds ? cooldownEnds - now : 0;
+  const effectiveCooldownEndsAt =
+    Math.max(localCooldownEndsAt ?? 0, cooldownEndsAt ?? 0) || null;
+  const remainingMs = effectiveCooldownEndsAt ? effectiveCooldownEndsAt - now : 0;
   const inCooldown = remainingMs > 0;
 
   useEffect(() => {
@@ -68,10 +67,14 @@ export function CartBar({
         cart.map((c) => ({ menuItemId: c.menuItemId, quantity: c.quantity }))
       );
       if (result.ok) {
-        const placedAt = Date.now();
-        setLocalLastOrderAt(placedAt);
-        onOrderPlaced(placedAt);
+        setNow(Date.now());
+        setLocalCooldownEndsAt(result.cooldownEndsAt);
+        onOrderPlaced();
       } else {
+        if (result.cooldownEndsAt) {
+          setNow(Date.now());
+          setLocalCooldownEndsAt(result.cooldownEndsAt);
+        }
         setError(result.error ?? "Something went wrong.");
       }
     });

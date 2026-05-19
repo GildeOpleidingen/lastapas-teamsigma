@@ -1,7 +1,7 @@
 import "dotenv/config";
 import { drizzle } from "drizzle-orm/neon-http";
 import { neon } from "@neondatabase/serverless";
-import { restaurantTables, menuItems } from "./schema";
+import { restaurantTables, menuItems, orderItems, orderItemNotes } from "./schema";
 
 const sql = neon(process.env.DATABASE_URL!);
 const db = drizzle({ client: sql });
@@ -78,8 +78,10 @@ async function main() {
   await db.insert(restaurantTables).values(tables).onConflictDoNothing();
   console.log("✓ Seeded 10 tables.");
 
+  await db.delete(orderItemNotes);
+  await db.delete(orderItems);
   await db.delete(menuItems);
-  console.log("✓ Cleared existing menu items.");
+  console.log("✓ Cleared existing menu items and dependent order data.");
 
   await db.insert(menuItems).values(items);
   console.log(`✓ Seeded ${items.length} menu items.`);

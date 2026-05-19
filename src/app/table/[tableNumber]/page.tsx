@@ -1,10 +1,9 @@
 import { notFound } from "next/navigation";
 import { db } from "@/db";
 import { menuItems, orders, restaurantTables, tableSessions } from "@/db/schema";
+import { ORDER_COOLDOWN_MS } from "@/lib/order-policy";
 import { and, desc, eq } from "drizzle-orm";
 import { MenuContent } from "./_components/MenuContent";
-import { CodeEntry } from "./_components/CodeEntry";
-import { hasTableAccess } from "@/lib/table-access";
 
 export default async function TablePage({
   params,
@@ -19,8 +18,7 @@ export default async function TablePage({
   const [table] = await db
     .select()
     .from(restaurantTables)
-    .where(eq(restaurantTables.tableNumber, tableId))
-    .catch(() => []);
+    .where(eq(restaurantTables.tableNumber, tableId));
 
   const [session] = table
     ? await db
@@ -32,7 +30,6 @@ export default async function TablePage({
             eq(tableSessions.status, "active")
           )
         )
-        .catch(() => [])
     : [];
 
   if (!session) {
@@ -46,33 +43,18 @@ export default async function TablePage({
     );
   }
 
-  // Code gate — check cookie against session ID so re-opened tables require a new code
-  if (session.accessCode) {
-    const verified = await hasTableAccess(tableId, session.id, session.accessCode);
-
-    if (!verified) {
-      return (
-        <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-background px-6 text-foreground">
-          <CodeEntry tableId={tableId} sessionId={session.id} />
-        </main>
-      );
-    }
-  }
-
   const [lastOrder] = await db
     .select({ createdAt: orders.createdAt })
     .from(orders)
     .where(eq(orders.tableSessionId, session.id))
     .orderBy(desc(orders.createdAt))
-    .limit(1)
-    .catch(() => []);
+    .limit(1);
 
   const items = await db
     .select()
     .from(menuItems)
     .where(eq(menuItems.isAvailable, true))
-    .orderBy(menuItems.displayOrder)
-    .catch(() => []);
+    .orderBy(menuItems.displayOrder);
 
   return (
     <main className="flex min-h-dvh w-full flex-col bg-background text-foreground">
@@ -81,7 +63,9 @@ export default async function TablePage({
         items={items}
         sessionId={session.id}
         guestCount={session.guestCount}
-        lastOrderAt={lastOrder?.createdAt.getTime() ?? null}
+        cooldownEndsAt={
+          lastOrder ? lastOrder.createdAt.getTime() + ORDER_COOLDOWN_MS : null
+        }
       />
     </main>
   );

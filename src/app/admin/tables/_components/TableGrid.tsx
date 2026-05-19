@@ -12,7 +12,6 @@ interface TableRow {
   status: "available" | "occupied" | "needs_service";
   sessionId: number | null;
   guestCount: number | null;
-  accessCode: string | null;
   sessionCreatedAt: number | null;
   roundsOrdered: number | null;
 }
@@ -159,11 +158,6 @@ function SidebarCard({
           {table.roundsOrdered ?? 0} round{(table.roundsOrdered ?? 0) !== 1 ? "s" : ""}
         </span>
       </div>
-      {table.accessCode && (
-        <span className="mt-1.5 block font-mono text-[11px] font-bold tracking-[0.2em] text-muted-foreground/70">
-          {table.accessCode}
-        </span>
-      )}
       {needsService && (
         <span className="mt-1.5 block text-[11px] font-semibold text-destructive">
           Service requested
@@ -363,14 +357,6 @@ function TablePanel({
               {isPending ? "Closing…" : "Close table"}
             </button>
           </div>
-          {table.accessCode && (
-            <div className="mt-3 flex items-center gap-3 rounded-xl bg-muted/50 px-4 py-2.5">
-              <span className="text-xs text-muted-foreground">Table code</span>
-              <span className="ml-auto font-mono text-lg font-bold tracking-[0.25em]">
-                {table.accessCode}
-              </span>
-            </div>
-          )}
         </>
       ) : (
         <div className="flex items-center justify-between gap-4">
@@ -521,6 +507,7 @@ function MobileSheet({
       </div>
 
       {occupied ? (
+        <>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-4 text-sm text-muted-foreground">
             <span className="flex items-center gap-1.5"><Users size={13} />{table.guestCount}</span>
@@ -534,6 +521,7 @@ function MobileSheet({
             {isPending ? "Closing…" : "Close table"}
           </button>
         </div>
+        </>
       ) : (
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-3">
