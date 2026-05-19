@@ -1,4 +1,10 @@
 import { notFound } from "next/navigation";
+import { db } from "@/db";
+import { menuItems, orders, restaurantTables, tableSessions } from "@/db/schema";
+import { and, desc, eq } from "drizzle-orm";
+import { MenuContent } from "./_components/MenuContent";
+import { CodeEntry } from "./_components/CodeEntry";
+import { hasTableAccess } from "@/lib/table-access";
 
 export default async function TablePage({
   params,
@@ -10,17 +16,73 @@ export default async function TablePage({
     notFound();
   }
 
-  return (
-    <main className="flex min-h-screen flex-col gap-6 bg-background px-6 py-10 text-foreground">
-      <div>
-        <p className="text-sm font-medium uppercase tracking-wide text-muted-foreground">
-          Guest table
+  const [table] = await db
+    .select()
+    .from(restaurantTables)
+    .where(eq(restaurantTables.tableNumber, tableId))
+    .catch(() => []);
+
+  const [session] = table
+    ? await db
+        .select()
+        .from(tableSessions)
+        .where(
+          and(
+            eq(tableSessions.tableId, table.id),
+            eq(tableSessions.status, "active")
+          )
+        )
+        .catch(() => [])
+    : [];
+
+  if (!session) {
+    return (
+      <main className="flex min-h-dvh w-full flex-col items-center justify-center gap-3 bg-background px-6 text-center text-foreground">
+        <p className="text-lg font-semibold">Table {tableId}</p>
+        <p className="text-muted-foreground">
+          Ask a staff member to open your table to start ordering.
         </p>
-        <h1 className="text-3xl font-semibold">Table {tableId}</h1>
-      </div>
-      <p className="max-w-2xl text-muted-foreground">
-        This page is ready for the table ordering experience.
-      </p>
+      </main>
+    );
+  }
+
+  // Code gate — check cookie against session ID so re-opened tables require a new code
+  if (session.accessCode) {
+    const verified = await hasTableAccess(tableId, session.id, session.accessCode);
+
+    if (!verified) {
+      return (
+        <main className="flex min-h-dvh w-full flex-col items-center justify-center bg-background px-6 text-foreground">
+          <CodeEntry tableId={tableId} sessionId={session.id} />
+        </main>
+      );
+    }
+  }
+
+  const [lastOrder] = await db
+    .select({ createdAt: orders.createdAt })
+    .from(orders)
+    .where(eq(orders.tableSessionId, session.id))
+    .orderBy(desc(orders.createdAt))
+    .limit(1)
+    .catch(() => []);
+
+  const items = await db
+    .select()
+    .from(menuItems)
+    .where(eq(menuItems.isAvailable, true))
+    .orderBy(menuItems.displayOrder)
+    .catch(() => []);
+
+  return (
+    <main className="flex min-h-dvh w-full flex-col bg-background text-foreground">
+      <MenuContent
+        tableId={tableId}
+        items={items}
+        sessionId={session.id}
+        guestCount={session.guestCount}
+        lastOrderAt={lastOrder?.createdAt.getTime() ?? null}
+      />
     </main>
   );
 }

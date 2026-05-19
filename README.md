@@ -1,36 +1,90 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Las Tapas — Team Sigma
 
-## Getting Started
+Restaurant table-ordering web app. Guests scan a QR code at their table and order from their phone.
 
-First, run the development server:
+---
 
+## Prerequisites
+
+- Node.js 20+
+- A [Neon](https://neon.tech) PostgreSQL database (free tier is fine)
+
+---
+
+## Setup
+
+**1. Install dependencies**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+**2. Set up environment variables**
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Copy `.env.example` to `.env.local` and fill in your Neon connection string, admin passcode, app secret, and Pusher credentials:
+```bash
+cp .env.example .env.local
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Get the connection string from your Neon project dashboard → **Connection Details** → select **Pooled connection**.
 
-## Learn More
+Create `APP_SECRET` with a strong random value, for example:
+```bash
+openssl rand -base64 32
+```
 
-To learn more about Next.js, take a look at the following resources:
+Create a Pusher Channels app and copy its app id, key, secret, and cluster into the matching `PUSHER_*` variables. Variables prefixed with `NEXT_PUBLIC_` are intentionally exposed to the browser for the Pusher client.
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+**3. Push the database schema**
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+This creates all tables in your database. Run once after cloning:
+```bash
+npx drizzle-kit push
+```
 
-## Deploy on Vercel
+**4. Start the dev server**
+```bash
+npm run dev
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+App runs at `http://localhost:3000`.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+---
+
+## Scripts
+
+| Command | What it does |
+|---|---|
+| `npm run dev` | Start dev server with hot reload |
+| `npm run build` | Production build |
+| `npm start` | Start production server |
+| `npm run lint` | Run ESLint |
+
+---
+
+## After changing the database schema
+
+Whenever you edit `src/db/schema.ts`, push the changes to the database:
+```bash
+npx drizzle-kit push
+```
+
+To inspect the database visually:
+```bash
+npx drizzle-kit studio
+```
+
+---
+
+## Project structure
+
+```
+src/
+  app/
+    admin/        # Admin dashboard (menu management, table overview)
+    kitchen/      # Kitchen display — incoming orders
+    staff/        # Staff view
+    table/[tableNumber]/  # Guest-facing menu & ordering
+  db/
+    index.ts      # Drizzle database client
+    schema.ts     # All table definitions
+```
